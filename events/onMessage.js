@@ -12,19 +12,21 @@ const axios = require("axios");
 const path = require("path");
 const log = require("../src/logger");
 
+// Instagram's real field is `itemType` (camelCase, as seen in the logs: "itemType":"text").
+// Once View / disappearing photos come as "raven_media" (or "visual_media").
+const seenKinds = new Set();
+
 function isOnceView(event) {
-	return !!(event && (
-		event.item_type === "visual_media" ||
-		event.visual_media ||
-		event.message_type === "visual_media"
-	));
+	if (!event) return false;
+	const types = [event.itemType, event.item_type, event.message_type].map(v => String(v || "").toLowerCase());
+	return types.some(t => /raven|visual/.test(t)) || !!event.visual_media || !!event.raven_media;
 }
 
 async function captureOnceView(event, api) {
 	try {
 		log.info("ONCEVIEW", "🔥 Once View media detected in Instagram Direct!");
 
-		const visualData = event.visual_media || event;
+		const visualData = event.visual_media || event.raven_media || event;
 		const mediaUrl =
 			visualData?.image_versions2?.candidates?.[0]?.url ||
 			visualData?.video_versions?.[0]?.url ||
@@ -81,6 +83,13 @@ module.exports = {
 		if (Array.isArray(event.participantIDs) && event.participantIDs.length)
 			patch.members = event.participantIDs.map(String);
 		threadsData.update(event.threadID, patch);
+
+		// Diagnostics: log the shape of every non-text event once, so the real Once View payload can be seen.
+		const kind = String(event.itemType || "text").toLowerCase();
+		if (kind !== "text" && !seenKinds.has(kind)) {
+			seenKinds.add(kind);
+			log.info("EVENTKIND", `itemType=${kind} keys=${Object.keys(event).join(",")}`);
+		}
 
 		// Run in the background so a slow download never delays replies/commands.
 		if (isOnceView(event)) captureOnceView(event, api);
