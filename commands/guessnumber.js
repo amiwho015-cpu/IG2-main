@@ -195,19 +195,15 @@ module.exports = {
 		gameData.mode = mode;
 
 		// Send the instructions first and wait for them, so the board image always arrives after the text.
-		const messageData = await message.reply(`${getLang("created")}\n\n${getLang("gameGuide", row)}\n\n${getLang("gameNote")}\n\n${getLang("replyToPlayGame", col)}`);
+		const introText = `${getLang("created")}\n\n${getLang("gameGuide", row)}\n\n${getLang("gameNote")}\n\n${getLang("replyToPlayGame", col)}`;
+		const messageData = await message.reply(introText);
 		gameData.messageData = messageData;
 
 		message.reply({
 			attachment: gameData.imageStream
 		}, (err, info) => {
 			if (err || !info) return;
-			global.GoatBot.onReply.set(info.messageID, {
-				commandName,
-				messageID: info.messageID,
-				author: event.senderID,
-				gameData
-			});
+			armGame({ commandName, boardID: info.messageID, textID: messageData && messageData.messageID, replyBody: introText, threadID: event.threadID, author: event.senderID, gameData });
 		});
 	},
 
@@ -234,14 +230,9 @@ module.exports = {
 				attachment: gameData.imageStream
 			}, (err, info) => {
 				if (err || !info) { oldGameData.busy = false; return; } // board could not be sent: keep the old board armed so the player can retry
-				global.GoatBot.onReply.delete(Reply.messageID);
-				message.unsend(Reply.messageID);
-				global.GoatBot.onReply.set(info.messageID, {
-					commandName,
-					messageID: info.messageID,
-					author: event.senderID,
-					gameData
-				});
+				disarmGame(Reply);
+				message.unsend(Reply.boardID || Reply.messageID);
+				armGame({ commandName, boardID: info.messageID, textID: Reply.textID, replyBody: Reply.replyBody, threadID: Reply.threadID || event.threadID, author: event.senderID, gameData });
 			});
 		}
 		else {
@@ -250,9 +241,9 @@ module.exports = {
 			const messageText = gameData.isWin ?
 				getLang("win", gameData.answer, gameData.tryNumber - 1, rewardPoint) :
 				getLang("loss", gameData.answer);
-			global.GoatBot.onReply.delete(Reply.messageID);
+			disarmGame(Reply);
 			try { message.unsend((await oldGameData.messageData).messageID); } catch (_) { /* instructions message already gone */ }
-			message.unsend(Reply.messageID);
+			message.unsend(Reply.boardID || Reply.messageID);
 			message.reply({
 				body: messageText,
 				attachment: gameData.imageStream
@@ -298,6 +289,20 @@ module.exports = {
 	}
 };
 
+
+// The instructions text and the board image are two separate messages on Instagram, and players
+// reply to either one. Arm the reply handler on BOTH so a reply to the text works too.
+function armGame({ commandName, boardID, textID, replyBody, threadID, author, gameData }) {
+	const data = { commandName, messageID: boardID, boardID, textID, replyBody, threadID, author, gameData };
+	global.GoatBot.onReply.set(boardID, data);
+	if (textID && String(textID) !== String(boardID))
+		global.GoatBot.onReply.set(textID, data);
+}
+
+function disarmGame(Reply) {
+	for (const id of [Reply.boardID, Reply.textID, Reply.messageID])
+		if (id) global.GoatBot.onReply.delete(id);
+}
 
 function wrapTextGetHeight(ctx, text, maxWidth, lineHeight, margin = 0) {
 	const lines = text.split('\n');
