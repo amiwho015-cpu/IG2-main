@@ -16,7 +16,7 @@ module.exports = {
     category: "LOVE"
   },
 
-  onStart: async function ({ api, event, usersData }) {
+  onStart: async function ({ api, event, usersData, args = [] }) {
     const { threadID, messageID, senderID, messageReply } = event;
 
     try {
@@ -48,7 +48,10 @@ module.exports = {
       try {
         ({ me, partner } = await pickPartner(usersData, String(targetID), members, wanted));
       } catch (e) {
-        if (e.friendly) return api.sendMessage("⚠️ " + e.message, threadID, messageID);
+        if (e.friendly) {
+          if (loading && loading.messageID) { try { await api.unsendMessage(loading.messageID, threadID); } catch {} }
+          return api.sendMessage("⚠️ " + e.message, threadID, messageID);
+        }
         throw e;
       }
       const senderGender = me.gender;
