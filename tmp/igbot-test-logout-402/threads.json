@@ -1,0 +1,32 @@
+{
+  "t": {
+    "threadID": "t",
+    "name": null,
+    "isGroup": false,
+    "groupKnown": false,
+    "members": [
+      {
+        "userID": "999",
+        "name": "User 999",
+        "nickname": null,
+        "inGroup": true,
+        "count": 1
+      }
+    ],
+    "adminIDs": [],
+    "settings": {},
+    "data": {},
+    "threadName": ""
+  },
+  "g": {
+    "threadID": "g",
+    "name": null,
+    "isGroup": false,
+    "groupKnown": false,
+    "members": [],
+    "adminIDs": [],
+    "settings": {},
+    "data": {},
+    "threadName": ""
+  }
+}

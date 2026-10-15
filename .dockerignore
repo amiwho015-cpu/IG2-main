@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.*
+*.log
+instabot-live-send.json
+data
+Dockerfile
+.dockerignore
+README.md
+
+# Never bake cookies into an image.

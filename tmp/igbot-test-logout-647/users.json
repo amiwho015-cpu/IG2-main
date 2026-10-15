@@ -1,0 +1,18 @@
+{
+  "999": {
+    "userID": "999",
+    "name": null,
+    "username": null,
+    "firstSeen": 1791577346060,
+    "banned": {
+      "status": false,
+      "reason": null,
+      "date": null
+    },
+    "settings": {},
+    "data": {},
+    "money": 0,
+    "exp": 0,
+    "gender": 0
+  }
+}
