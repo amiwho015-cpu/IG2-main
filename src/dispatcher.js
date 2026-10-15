@@ -276,7 +276,10 @@ function createDispatcher({ api, config, registry, database }) {
 
 		const botID = api && typeof api.getCurrentUserID === "function" ? String(api.getCurrentUserID()) : null;
 		const repliedToBot = !replied.senderID || (botID && String(replied.senderID) === botID);
-		if (!repliedToBot) return null;
+		const hasMedia = Array.isArray(replied.attachments) && replied.attachments.length > 0;
+		// Instagram sometimes reports the bot's own image with a different sender id format, so an
+		// attachment-only message still counts as the bot's when it carries media and no text.
+		if (!repliedToBot && !hasMedia) return null;
 		if (replied.body && String(replied.body).trim()) return null; // text message: exact id or nothing
 		// A reply that is really a command ("-help" swiped onto a bot message) must stay a command.
 		const body = typeof event.body === "string" ? event.body : "";
