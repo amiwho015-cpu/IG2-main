@@ -218,7 +218,8 @@ class BridgeMap extends Map {
 					persistent: true,
 					threadID,
 					fallback: mediaMessages.has(id),
-					author: data.author != null ? data.author : (data.au != null ? data.au : null)
+					author: data.author != null ? data.author : (data.au != null ? data.au : null),
+					bodyMatch: data.replyBody || null
 				});
 			}
 			else dispatcher.registerOnReaction(key, name, handler);

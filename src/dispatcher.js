@@ -94,6 +94,7 @@ function createDispatcher({ api, config, registry, database }) {
 			persistent: opts.persistent === true,
 			fallback: opts.fallback === true,
 			author: opts.author != null ? String(opts.author) : null,
+			bodyMatch: opts.bodyMatch ? String(opts.bodyMatch).replace(/\s+/g, " ").trim() : null,
 			threadID: opts.threadID != null ? String(opts.threadID) : null
 		});
 		return handler;
@@ -273,6 +274,27 @@ function createDispatcher({ api, config, registry, database }) {
 		if (!replied) return null;
 		const repliedID = replied.messageID != null ? String(replied.messageID) : null;
 		if (repliedID && onReply.has(repliedID)) return { id: repliedID, entry: onReply.get(repliedID) };
+
+		// Instagram reports a sent message under a different id format (numeric item id vs "mid.$...")
+		// than the send call returned, so an exact id match can miss. A reply to one of the bot's TEXT
+		// messages is then matched by the quoted text itself (handlers opt in with `replyBody`).
+		if (replied.body && String(replied.body).trim()) {
+			const quoted = String(replied.body).replace(/\s+/g, " ").trim();
+			const body0 = typeof event.body === "string" ? event.body : "";
+			if (!(config.prefix && body0.startsWith(config.prefix))) {
+				const tid = String(event.threadID);
+				const sid = senderIDOf(event);
+				let hit = null;
+				for (const [id, entry] of onReply) {
+					if (!entry.persistent || !entry.bodyMatch || entry.bodyMatch !== quoted) continue;
+					if (entry.threadID !== tid) continue;
+					if (entry.author && entry.author !== sid) continue;
+					if (Date.now() - (entry.at || 0) > HANDLER_TTL_MS) continue;
+					if (!hit || entry.at >= hit.entry.at) hit = { id, entry };
+				}
+				if (hit) { log.warn("REPLY", `reply to ${repliedID || "unknown id"} matched by text; using ${hit.entry.commandName} handler (${hit.id})`); return hit; }
+			}
+		}
 
 		const botID = api && typeof api.getCurrentUserID === "function" ? String(api.getCurrentUserID()) : null;
 		const repliedToBot = !replied.senderID || (botID && String(replied.senderID) === botID);
