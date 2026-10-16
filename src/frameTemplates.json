@@ -1,0 +1,437 @@
+{
+  "_how_to_use": "One entry per command. bg = image link or a path inside the bot folder. a = YOUR picture slot, b = the OTHER person's slot; x,y = top-left corner, size = width and height in background-image pixels. round:false for square pictures. Commands without an entry use the generated card.",
+  "married2": {
+    "bg": "assets/frames/married2.jpg",
+    "a": {
+      "x": 262,
+      "y": 75,
+      "size": 150
+    },
+    "b": {
+      "x": 376,
+      "y": 182,
+      "size": 138
+    },
+    "round": true
+  },
+  "married3": {
+    "bg": "assets/frames/married3.jpg",
+    "a": {
+      "x": 345,
+      "y": 98,
+      "size": 138
+    },
+    "b": {
+      "x": 198,
+      "y": 178,
+      "size": 152
+    },
+    "round": true
+  },
+  "married4": {
+    "bg": "assets/frames/married4.jpg",
+    "a": {
+      "x": 183,
+      "y": 30,
+      "size": 58
+    },
+    "b": {
+      "x": 110,
+      "y": 42,
+      "size": 54
+    },
+    "round": true
+  },
+  "bow": {
+    "bg": "assets/frames/bow.jpg",
+    "a": {
+      "x": 150,
+      "y": 30,
+      "size": 108
+    },
+    "b": {
+      "x": 258,
+      "y": 162,
+      "size": 92
+    },
+    "round": true
+  },
+  "bow2": {
+    "bg": "assets/frames/bow2.jpg",
+    "a": {
+      "x": 115,
+      "y": 185,
+      "size": 95
+    },
+    "b": {
+      "x": 172,
+      "y": 278,
+      "size": 75
+    },
+    "round": true
+  },
+  "bow3": {
+    "bg": "assets/frames/bow3.jpg",
+    "a": {
+      "x": 163,
+      "y": 78,
+      "size": 88
+    },
+    "b": {
+      "x": 84,
+      "y": 250,
+      "size": 92
+    },
+    "round": true
+  },
+  "bow4": {
+    "bg": "assets/frames/bow4.jpg",
+    "a": {
+      "x": 193,
+      "y": 52,
+      "size": 98
+    },
+    "b": {
+      "x": 148,
+      "y": 137,
+      "size": 86
+    },
+    "round": true
+  },
+  "bow5": {
+    "bg": "assets/frames/bow5.jpg",
+    "a": {
+      "x": 102,
+      "y": 80,
+      "size": 140
+    },
+    "b": {
+      "x": 280,
+      "y": 215,
+      "size": 120
+    },
+    "round": true
+  },
+  "girlfriend": {
+    "bg": "assets/frames/girlfriend.jpg",
+    "a": {
+      "x": 302,
+      "y": 300,
+      "size": 100
+    },
+    "b": {
+      "x": 120,
+      "y": 90,
+      "size": 90
+    },
+    "round": true
+  },
+  "girlfriend2": {
+    "bg": "assets/frames/girlfriend2.jpg",
+    "a": {
+      "x": 100,
+      "y": 18,
+      "size": 62
+    },
+    "b": {
+      "x": 62,
+      "y": 50,
+      "size": 58
+    },
+    "round": true
+  },
+  "girlfriend3": {
+    "bg": "assets/frames/girlfriend3.jpg",
+    "a": {
+      "x": 228,
+      "y": 28,
+      "size": 64
+    },
+    "b": {
+      "x": 160,
+      "y": 62,
+      "size": 66
+    },
+    "round": true
+  },
+  "girlfriend4": {
+    "bg": "assets/frames/girlfriend4.jpg",
+    "a": {
+      "x": 150,
+      "y": 90,
+      "size": 110
+    },
+    "b": {
+      "x": 247,
+      "y": 152,
+      "size": 105
+    },
+    "round": true
+  },
+  "hug2": {
+    "bg": "assets/frames/hug2.jpg",
+    "a": {
+      "x": 108,
+      "y": 118,
+      "size": 72
+    },
+    "b": {
+      "x": 68,
+      "y": 55,
+      "size": 78
+    },
+    "round": true
+  },
+  "hug3": {
+    "bg": "assets/frames/hug3.jpg",
+    "a": {
+      "x": 172,
+      "y": 150,
+      "size": 92
+    },
+    "b": {
+      "x": 172,
+      "y": 255,
+      "size": 72
+    },
+    "round": true
+  },
+  "hug4": {
+    "bg": "assets/frames/hug4.jpg",
+    "a": {
+      "x": 138,
+      "y": 92,
+      "size": 98
+    },
+    "b": {
+      "x": 158,
+      "y": 212,
+      "size": 82
+    },
+    "round": true
+  },
+  "hug5": {
+    "bg": "assets/frames/hug5.jpg",
+    "a": {
+      "x": 172,
+      "y": 132,
+      "size": 98
+    },
+    "b": {
+      "x": 212,
+      "y": 232,
+      "size": 82
+    },
+    "round": true
+  },
+  "kiss2": {
+    "bg": "assets/frames/kiss2.jpg",
+    "a": {
+      "x": 78,
+      "y": 100,
+      "size": 105
+    },
+    "b": {
+      "x": 162,
+      "y": 68,
+      "size": 100
+    },
+    "round": true
+  },
+  "kiss3": {
+    "bg": "assets/frames/kiss3.jpg",
+    "a": {
+      "x": 125,
+      "y": 155,
+      "size": 125
+    },
+    "b": {
+      "x": 235,
+      "y": 180,
+      "size": 125
+    },
+    "round": true
+  },
+  "kiss4": {
+    "bg": "assets/frames/kiss4.jpg",
+    "a": {
+      "x": 68,
+      "y": 122,
+      "size": 80
+    },
+    "b": {
+      "x": 130,
+      "y": 142,
+      "size": 76
+    },
+    "round": true
+  },
+  "kiss5": {
+    "bg": "assets/frames/kiss5.jpg",
+    "a": {
+      "x": 135,
+      "y": 65,
+      "size": 115
+    },
+    "b": {
+      "x": 225,
+      "y": 100,
+      "size": 115
+    },
+    "round": true
+  },
+  "love": {
+    "bg": "assets/frames/love.jpg",
+    "a": {
+      "x": 0,
+      "y": 90,
+      "size": 270
+    },
+    "b": {
+      "x": 245,
+      "y": 130,
+      "size": 200
+    },
+    "round": true
+  },
+  "love2": {
+    "bg": "assets/frames/love2.jpg",
+    "a": {
+      "x": 163,
+      "y": 112,
+      "size": 48
+    },
+    "b": {
+      "x": 98,
+      "y": 150,
+      "size": 50
+    },
+    "round": true
+  },
+  "love3": {
+    "bg": "assets/frames/love3.jpg",
+    "a": {
+      "x": 190,
+      "y": 115,
+      "size": 165
+    },
+    "b": {
+      "x": 118,
+      "y": 225,
+      "size": 145
+    },
+    "round": true
+  },
+  "love4": {
+    "bg": "assets/frames/love4.jpg",
+    "a": {
+      "x": 43,
+      "y": 175,
+      "size": 50
+    },
+    "b": {
+      "x": 103,
+      "y": 198,
+      "size": 45
+    },
+    "round": true
+  },
+  "love5": {
+    "bg": "assets/frames/love5.jpg",
+    "a": {
+      "x": 195,
+      "y": 112,
+      "size": 125
+    },
+    "b": {
+      "x": 122,
+      "y": 172,
+      "size": 108
+    },
+    "round": true
+  },
+  "latti": {
+    "bg": "assets/frames/latti.jpg",
+    "a": {
+      "x": 148,
+      "y": 55,
+      "size": 84
+    },
+    "b": {
+      "x": 318,
+      "y": 22,
+      "size": 75
+    },
+    "round": true
+  },
+  "latti2": {
+    "bg": "assets/frames/latti2.jpg",
+    "a": {
+      "x": 186,
+      "y": 40,
+      "size": 78
+    },
+    "b": {
+      "x": 398,
+      "y": 82,
+      "size": 68
+    },
+    "round": true
+  },
+  "latti3": {
+    "bg": "assets/frames/latti3.jpg",
+    "a": {
+      "x": 36,
+      "y": 52,
+      "size": 72
+    },
+    "b": {
+      "x": 325,
+      "y": 45,
+      "size": 85
+    },
+    "round": true
+  },
+  "friend": {
+    "bg": "assets/frames/friend.jpg",
+    "a": {
+      "x": 68,
+      "y": 108,
+      "size": 115
+    },
+    "b": {
+      "x": 183,
+      "y": 68,
+      "size": 118
+    },
+    "round": true
+  },
+  "friend2": {
+    "bg": "assets/frames/friend2.jpg",
+    "a": {
+      "x": 110,
+      "y": 232,
+      "size": 92
+    },
+    "b": {
+      "x": 165,
+      "y": 135,
+      "size": 105
+    },
+    "round": true
+  },
+  "friend3": {
+    "bg": "assets/frames/friend3.jpg",
+    "a": {
+      "x": 24,
+      "y": 312,
+      "size": 82
+    },
+    "b": {
+      "x": 190,
+      "y": 262,
+      "size": 84
+    },
+    "round": true
+  }
+}

@@ -43,7 +43,7 @@ const FAMILIES = {
 	rip:        { title: "R.I.P",       shape: "cross", percent: false, gray: true, caption: (a, b) => `🪦 ${b} আর নেই... RIP 😂` },
 	latti:      { title: "KICK",        shape: "bolt",  percent: false, caption: (a, b) => `🦶 ${a} লাথি মারল ${b} কে 😂` },
 	juta:       { title: "SHOE",        shape: "bolt",  percent: false, caption: (a, b) => `👞 ${a} জুতা মারল ${b} কে 😂` },
-	bow:        { title: "RESPECT",     shape: "star",  percent: false, caption: (a, b) => `🙇 ${a} মাথা নিচু করে ${b} কে সম্মান জানাল` },
+	bow:        { title: "COUPLE",      shape: "heart", percent: false, caption: (a, b) => `💞 ${a} আর ${b} 🥰` },
 	chor:       { title: "CAUGHT",      shape: "cross", percent: false, caption: (a, b) => `🕵️ ${b} ধরা পড়েছে! চোর চোর 😂` },
 	ronaldo:    { title: "SIUUU",       shape: "star",  percent: false, caption: (a, b) => `⚽ ${a} আর ${b} — SIUUU! 🐐` },
 	finger:     { title: "POINT",       shape: "bolt",  percent: false, caption: (a, b) => `👆 ${a} আঙুল তুলল ${b} এর দিকে 😜` },
@@ -223,6 +223,54 @@ function renderCard({ family, variant, imgA, imgB, nameA, nameB, percent }) {
 	return canvas.toBuffer("image/png");
 }
 
+/* --------------------------------------------------------------- templates */
+
+// Optional real scene artwork. src/frameTemplates.json maps a command name to
+//   { "bg": "<image url>", "a": {"x":..,"y":..,"size":..}, "b": {...}, "round": true }
+// x/y is the top-left corner of the picture slot in background-image pixels.
+// A command with no entry falls back to the generated card above.
+function loadTemplates() {
+	try {
+		const file = path.join(__dirname, "frameTemplates.json");
+		return JSON.parse(fs.readFileSync(file, "utf8"));
+	}
+	catch (_) { return {}; }
+}
+
+async function loadBackground(url) {
+	if (/^https?:\/\//i.test(url)) {
+		const res = await axios.get(url, { responseType: "arraybuffer", timeout: 20000 });
+		return Canvas.loadImage(Buffer.from(res.data));
+	}
+	return Canvas.loadImage(path.resolve(__dirname, "..", url));
+}
+
+function drawSlot(ctx, img, slot, round, gray) {
+	const { x, y, size } = slot;
+	const w = slot.w || size, h = slot.h || size;
+	ctx.save();
+	if (round) {
+		ctx.beginPath();
+		ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+		ctx.closePath(); ctx.clip();
+	}
+	const side = Math.min(img.width, img.height);
+	ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, x, y, w, h);
+	if (gray) toGray(ctx, Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+	ctx.restore();
+}
+
+async function renderTemplate(tpl, imgA, imgB) {
+	const bg = await loadBackground(tpl.bg);
+	const canvas = Canvas.createCanvas(bg.width, bg.height);
+	const ctx = canvas.getContext("2d");
+	ctx.drawImage(bg, 0, 0, bg.width, bg.height);
+	const round = tpl.round !== false;
+	if (tpl.b) drawSlot(ctx, imgB, tpl.b, round, !!tpl.grayB);
+	if (tpl.a) drawSlot(ctx, imgA, tpl.a, round, !!tpl.grayA);
+	return canvas.toBuffer("image/png");
+}
+
 /* ----------------------------------------------------------------- command */
 
 function createFrameCommand({ name, family: familyKey, variant = 1 }) {
@@ -267,7 +315,13 @@ function createFrameCommand({ name, family: familyKey, variant = 1 }) {
 				]);
 
 				const percent = pairPercent(senderID, targetID);
-				const png = renderCard({
+				const tpl = loadTemplates()[name];
+				let png = null;
+				if (tpl && tpl.bg) {
+					try { png = await renderTemplate(tpl, imgA, imgB); }
+					catch (e) { console.error(`[${name}] template failed, using generated card:`, e && e.message); }
+				}
+				if (!png) png = renderCard({
 					family, variant, imgA, imgB,
 					nameA: drawableName(rawA), nameB: drawableName(rawB), percent
 				});
