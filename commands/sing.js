@@ -1,369 +1,175 @@
-
 "use strict";
 
-const fs = require("fs-extra");
+/**
+ * sing — `-sing <song name>`
+ * Searches YouTube, takes the TOP result and sends only the audio. No song name, no caption,
+ * no "downloading" text: just the song itself (a 🎵 reaction on the request shows it is working).
+ *
+ * Uses the same API host as the ytb command (apis.json -> "xalman-hub"):
+ *   /api/ytsearch?q=...   (search)    /api/ytmp3?url=...   (audio link)
+ * If YouTube audio fails for a result it tries the next results, then falls back to SoundCloud
+ * (/api/scdlv2) so a song still comes even when one source is down.
+ */
+
 const axios = require("axios");
+const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
-const MAX_SIZE = 25 * 1024 * 1024;
+const API_CONFIG_URL = "https://raw.githubusercontent.com/goatbotnx/xalmanx210/refs/heads/main/apis.json";
+const API_KEY = "xalman-hub";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-function getError(err) {
-    if (!err) return "Unknown error";
-    if (typeof err === "string") return err;
+const MAX_TRACKS = 3;                    // how many search results to try before giving up
+const MAX_SECONDS = 12 * 60;             // skip very long videos (mixes, live streams)
+const MAX_BYTES = 30 * 1024 * 1024;      // skip files too big to send comfortably
 
-    const data = err.response?.data;
+let apiBaseUrl = null;
+let apiConfigRequest = null;
 
-    if (typeof data === "string") return data;
-
-    if (data && typeof data === "object") {
-        try {
-            return JSON.stringify(data);
-        } catch (_) {}
-    }
-
-    return err.message || String(err);
+async function getApiBaseUrl() {
+	if (apiBaseUrl) return apiBaseUrl;
+	if (!apiConfigRequest) {
+		apiConfigRequest = axios.get(API_CONFIG_URL, { timeout: 15000 })
+			.then(({ data }) => {
+				const baseUrl = data && data[API_KEY];
+				if (typeof baseUrl !== "string" || !baseUrl.trim()) throw new Error(`Missing ${API_KEY} in apis.json`);
+				apiBaseUrl = baseUrl.replace(/\/+$/, "");
+				return apiBaseUrl;
+			})
+			.finally(() => { apiConfigRequest = null; });
+	}
+	return apiConfigRequest;
 }
 
-function formatDuration(value) {
-    if (value === undefined || value === null || value === "") {
-        return "Unknown";
-    }
-
-    if (typeof value === "string" && value.includes(":")) {
-        return value;
-    }
-
-    let seconds = Number(value);
-
-    if (!Number.isFinite(seconds) || seconds <= 0) {
-        return "Unknown";
-    }
-
-    // Some APIs provide duration in milliseconds.
-    if (seconds > 10000) {
-        seconds = Math.floor(seconds / 1000);
-    }
-
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-        return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-    }
-
-    return `${minutes}:${String(secs).padStart(2, "0")}`;
+function toSeconds(value) {
+	if (value == null || value === "") return null;
+	if (typeof value === "number") return value;
+	const parts = String(value).split(":").map(Number);
+	if (parts.some(Number.isNaN)) return null;
+	return parts.reduce((total, part) => total * 60 + part, 0);
 }
 
-function findAudioUrl(obj, depth = 0) {
-    if (!obj || typeof obj !== "object" || depth > 5) {
-        return null;
-    }
-
-    const keys = [
-        "progressive_download_url",
-        "fast_start_progressive_download_url",
-        "download_url",
-        "downloadUrl",
-        "audio_url",
-        "audioUrl",
-        "previewUrl",
-        "preview_url",
-        "web_30s_preview_download_url",
-        "stream_url",
-        "streamUrl",
-        "url",
-        "src",
-        "link"
-    ];
-
-    for (const key of keys) {
-        const value = obj[key];
-
-        if (
-            typeof value === "string" &&
-            /^https?:\/\//i.test(value)
-        ) {
-            return value;
-        }
-
-        if (value && typeof value === "object") {
-            const nested = findAudioUrl(value, depth + 1);
-            if (nested) return nested;
-        }
-    }
-
-    for (const key of [
-        "track",
-        "data",
-        "result",
-        "audio",
-        "media",
-        "music"
-    ]) {
-        if (obj[key] && typeof obj[key] === "object") {
-            const nested = findAudioUrl(obj[key], depth + 1);
-            if (nested) return nested;
-        }
-    }
-
-    return null;
+function trackUrl(item) {
+	if (!item) return null;
+	if (item.url) return item.url;
+	if (item.link) return item.link;
+	if (item.videoId || item.id) return `https://www.youtube.com/watch?v=${item.videoId || item.id}`;
+	return null;
 }
 
-function getFirstTrack(data) {
-    if (!data) return null;
-
-    let list = Array.isArray(data)
-        ? data
-        : data.items ||
-          data.tracks ||
-          data.results ||
-          data.songs ||
-          data.data?.items ||
-          data.data?.tracks ||
-          data.data?.results ||
-          data.data ||
-          (data.track ? [data.track] : []);
-
-    if (!Array.isArray(list)) {
-        list = list && typeof list === "object" ? [list] : [];
-    }
-
-    if (!list.length) return null;
-
-    // Always use the first search result.
-    const entry = list[0];
-    const track = entry?.track || entry?.original_sound || entry;
-
-    const duration =
-        track?.duration ??
-        track?.duration_seconds ??
-        track?.durationSeconds ??
-        track?.length ??
-        track?.video_duration ??
-        entry?.duration ??
-        0;
-
-    return {
-        title:
-            track?.title ||
-            track?.canonical_title ||
-            track?.name ||
-            "Unknown Song",
-
-        artist:
-            track?.artist ||
-            track?.display_artist ||
-            track?.singer ||
-            track?.channel ||
-            track?.artist_name ||
-            "Unknown Artist",
-
-        duration,
-
-        url:
-            findAudioUrl(entry) ||
-            findAudioUrl(track)
-    };
+// Top results first, but prefer ones of a normal song length when the API tells us the duration.
+function pickTracks(results) {
+	const usable = results.filter(r => trackUrl(r));
+	const normal = usable.filter(r => {
+		const s = toSeconds(r.duration || r.seconds || r.timestamp);
+		return s == null || s <= MAX_SECONDS;
+	});
+	return (normal.length ? normal : usable).slice(0, MAX_TRACKS);
 }
 
-async function searchFirstSong(api, message, query) {
-    let result;
-
-    if (typeof api.searchMusic === "function") {
-        result = await api.searchMusic(query);
-    } else if (typeof message.musicSearch === "function") {
-        result = await message.musicSearch(query);
-    } else {
-        throw new Error("ICA music search method paoa jayni.");
-    }
-
-    console.log(
-        "[SONG SEARCH RESULT]",
-        JSON.stringify(result, null, 2)
-    );
-
-    const track = getFirstTrack(result);
-
-    if (!track) {
-        throw new Error("Kono song search result paoa jayni.");
-    }
-
-    if (!track.url) {
-        throw new Error(
-            "First result-e downloadable audio URL nei."
-        );
-    }
-
-    return track;
+async function downloadTo(file, url, referer) {
+	const res = await axios.get(url, {
+		responseType: "stream",
+		timeout: 60000,
+		maxContentLength: Infinity,
+		maxBodyLength: Infinity,
+		headers: { "User-Agent": UA, "Accept": "audio/mpeg,audio/*,*/*;q=0.8", ...(referer ? { Referer: referer } : {}) }
+	});
+	const size = Number(res.headers && res.headers["content-length"]);
+	if (size && size > MAX_BYTES) {
+		if (res.data && res.data.destroy) res.data.destroy();
+		throw new Error("file too large");
+	}
+	await new Promise((resolve, reject) => {
+		const out = fs.createWriteStream(file);
+		res.data.on("error", reject);
+		out.on("error", reject);
+		out.on("finish", resolve);
+		res.data.pipe(out);
+	});
+	const written = fs.statSync(file).size;
+	if (!written) throw new Error("empty file");
+	if (written > MAX_BYTES) throw new Error("file too large");
 }
 
-async function sendFirstSong(api, event, track) {
-    const dir = path.join(__dirname, "tmp");
-    await fs.ensureDir(dir);
-
-    const file = path.join(
-        dir,
-        `song_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`
-    );
-
-    let writer;
-
-    try {
-        const response = await axios.get(track.url, {
-            responseType: "stream",
-            timeout: 60000,
-            maxRedirects: 5,
-            headers: {
-                "User-Agent": "Mozilla/5.0"
-            },
-            validateStatus: status => status >= 200 && status < 300
-        });
-
-        const contentType = String(
-            response.headers["content-type"] || ""
-        ).toLowerCase();
-
-        if (
-            contentType.includes("text/html") ||
-            contentType.includes("application/json")
-        ) {
-            response.data.destroy();
-            throw new Error("Audio URL theke audio file paoa jayni.");
-        }
-
-        const contentLength = Number(
-            response.headers["content-length"] || 0
-        );
-
-        if (contentLength > MAX_SIZE) {
-            response.data.destroy();
-            throw new Error("Song file 25 MB-er beshi.");
-        }
-
-        let downloaded = 0;
-        writer = fs.createWriteStream(file);
-
-        await new Promise((resolve, reject) => {
-            response.data.on("data", chunk => {
-                downloaded += chunk.length;
-
-                if (downloaded > MAX_SIZE) {
-                    const error = new Error("Song file 25 MB-er beshi.");
-                    response.data.destroy(error);
-                    writer.destroy(error);
-                }
-            });
-
-            response.data.on("error", reject);
-            writer.on("error", reject);
-            writer.on("finish", resolve);
-
-            response.data.pipe(writer);
-        });
-
-        if (!downloaded || !fs.existsSync(file)) {
-            throw new Error("Downloaded audio file empty.");
-        }
-
-        const stat = await fs.stat(file);
-
-        if (stat.size > MAX_SIZE) {
-            throw new Error("Song file 25 MB-er beshi.");
-        }
-
-        const duration = formatDuration(track.duration);
-
-        const body =
-            `🎧 Song: ${track.title}\n` +
-            `🎤 Publisher: ${track.artist}\n\n` +
-            `😘 Enjoy Using Tanvir143 Robot..`;
-
-        const stream = fs.createReadStream(file);
-
-        await new Promise((resolve, reject) => {
-            api.sendMessage(
-                {
-                    body,
-                    attachment: stream
-                },
-                event.threadID,
-                err => {
-                    if (err) return reject(err);
-                    resolve();
-                },
-                event.messageID
-            );
-        });
-    } finally {
-        if (writer && !writer.destroyed) {
-            writer.destroy();
-        }
-
-        await fs.remove(file).catch(() => {});
-    }
+async function youtubeAudio(base, track, file) {
+	const { data } = await axios.get(`${base}/api/ytmp3?url=${encodeURIComponent(trackUrl(track))}`, { timeout: 45000, headers: { "User-Agent": UA } });
+	if (!(data && (data.status || data.success)) || !data.url) throw new Error("ytmp3 failed");
+	await downloadTo(file, data.url);
 }
 
-async function react(api, event, emoji) {
-    try {
-        await api.setMessageReaction(
-            emoji,
-            event.messageID,
-            event.threadID
-        );
-    } catch (_) {}
+async function soundcloudAudio(base, query, file) {
+	const { data } = await axios.get(`${base}/api/scdlv2?query=${encodeURIComponent(query)}`, { timeout: 25000, headers: { "User-Agent": UA } });
+	if (!(data && data.status) || !data.result || !data.result.download_url) throw new Error("soundcloud failed");
+	await downloadTo(file, data.result.download_url, "https://soundcloud.com/");
+}
+
+function cleanup(file) {
+	const timer = setTimeout(() => fs.unlink(file, () => { }), 15000);
+	if (timer.unref) timer.unref();
 }
 
 module.exports = {
-    config: {
-        name: "song",
-        aliases: ["sing", "play", "audio"],
-        version: "5.0.0",
-        author: "Tanvir143",
-        countDown: 10,
-        role: 0,
-        category: "Users cmd",
+	config: {
+		name: "sing",
+		version: "5.0",
+		author: "InstaBOT",
+		countDown: 5,
+		role: 0,
+		category: "MEDIA",
+		shortDescription: { en: "Send a song straight from YouTube" },
+		longDescription: { en: "Searches YouTube, takes the top result and sends only the audio — no title or caption." },
+		guide: { en: "{pn} <song name>" }
+	},
 
-        description: {
-            en: "Search and send the first song as audio."
-        },
+	onStart: async function ({ api, event, args = [] }) {
+		const { threadID, messageID } = event;
+		const query = args.join(" ").trim();
+		if (!query) return api.sendMessage("🎵 গানের নাম লেখো।\nউদাহরণ: -sing baila lento", threadID, messageID);
 
-        guide: {
-            en: "{pn} <song name>"
-        }
-    },
+		const react = (emoji) => { try { api.setMessageReaction(emoji, messageID, () => { }, true); } catch (_) { /* reactions are optional */ } };
+		react("🎵");
 
-    onStart: async function ({ api, event, args, message }) {
-        const query = args.join(" ").trim();
+		const file = path.join(os.tmpdir(), `sing_${Date.now()}_${Math.floor(Math.random() * 1e4)}.mp3`);
+		let ready = false;
 
-        if (!query) {
-            await react(api, event, "❌");
+		try {
+			const base = await getApiBaseUrl();
 
-            return message.reply(
-                "🎵 Gaaner naam dao.\nExample: .song Jaane Kyun"
-            );
-        }
+			// 1) YouTube: top results, first one that downloads wins
+			try {
+				const { data } = await axios.get(`${base}/api/ytsearch?q=${encodeURIComponent(query)}`, { timeout: 25000, headers: { "User-Agent": UA } });
+				const results = data && data.status && Array.isArray(data.results) ? data.results : [];
+				for (const track of pickTracks(results)) {
+					try { await youtubeAudio(base, track, file); ready = true; break; }
+					catch (e) { console.log(`[sing] youtube track failed (${trackUrl(track)}): ${e && e.message}`); }
+				}
+			}
+			catch (e) { console.log(`[sing] youtube search failed: ${e && e.message}`); }
 
-        await react(api, event, "😘");
+			// 2) fallback source
+			if (!ready) {
+				try { await soundcloudAudio(base, query, file); ready = true; }
+				catch (e) { console.log(`[sing] soundcloud fallback failed: ${e && e.message}`); }
+			}
 
-        try {
-            const track = await searchFirstSong(
-                api,
-                message,
-                query
-            );
+			if (!ready) {
+				react("❌");
+				return api.sendMessage("❌ গানটা পাওয়া যায়নি। অন্য নামে চেষ্টা করো।", threadID, messageID);
+			}
 
-            await sendFirstSong(api, event, track);
-
-            await react(api, event, "✅");
-        } catch (err) {
-            console.error("[SONG ERROR]", err);
-
-            await react(api, event, "❌");
-
-            return message.reply(
-                `❌ Song pathano jayni.\n📝 ${getError(err)}`
-            );
-        }
-    }
+			// only the song itself goes into the chat
+			await api.sendMessage({ body: "", attachment: fs.createReadStream(file) }, threadID);
+			react("✅");
+		}
+		catch (err) {
+			console.error("[sing] error:", err && err.stack || err);
+			react("❌");
+			return api.sendMessage("❌ গান পাঠানো যায়নি। একটু পরে আবার চেষ্টা করো।", threadID, messageID);
+		}
+		finally {
+			cleanup(file);
+		}
+	}
 };
